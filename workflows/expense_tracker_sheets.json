@@ -1,0 +1,101 @@
+{
+  "name": "Google Sheets Expense Tracker Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": "={{ $env.EXPENSE_SHEET_ID }}",
+        "range": "A:D",
+        "options": {},
+        "valuesUi": {
+          "valuesValues": [
+            {
+              "columnName": "Date",
+              "columnValue": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.date || $now.toFormat('yyyy-MM-dd') }}"
+            },
+            {
+              "columnName": "Amount",
+              "columnValue": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.amount }}"
+            },
+            {
+              "columnName": "Category",
+              "columnValue": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.subject }}"
+            },
+            {
+              "columnName": "Description",
+              "columnValue": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.body || 'No details provided' }}"
+            }
+          ]
+        }
+      },
+      "id": "sheets-append",
+      "name": "Google Sheets Append",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        800,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
+        "text": "=✅ Expense recorded successfully!\n\nDate: {{ $node[\"Google Sheets Append\"].json.values.Date }}\nAmount: {{ $node[\"Google Sheets Append\"].json.values.Amount }}\nCategory: {{ $node[\"Google Sheets Append\"].json.values.Category }}",
+        "additionalFields": {}
+      },
+      "id": "final-response",
+      "name": "Telegram Response",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Google Sheets Append": {
+      "main": [
+        [
+          {
+            "node": "Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "sheets-workflow-v1"
+}

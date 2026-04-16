@@ -1,0 +1,84 @@
+{
+  "name": "Google Calendar Scheduling Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "calendar": "={{ $env.PRIMARY_CALENDAR_ID || 'primary' }}",
+        "start": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.date }}T{{ $node[\"OpenAI Agent\"].json.message.content.entities.time || '09:00' }}:00Z",
+        "end": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.date }}T{{ ($node[\"OpenAI Agent\"].json.message.content.entities.time ? ($node[\"OpenAI Agent\"].json.message.content.entities.time.split(':')[0]*1 + 1) : 10).toString().padStart(2, '0') }}:00:00Z",
+        "summary": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.subject }}",
+        "additionalFields": {
+          "description": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.body || 'Scheduled via AI Assistant' }}"
+        }
+      },
+      "id": "calendar-create",
+      "name": "Google Calendar Create",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        800,
+        300
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "YOUR_CALENDAR_CREDENTIAL_ID",
+          "name": "Google Calendar OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
+        "text": "=📅 Event scheduled successfully!\n\nEvent: {{ $node[\"Google Calendar Create\"].json.summary }}\nDate: {{ $node[\"Google Calendar Create\"].json.start.dateTime.split('T')[0] }}\nTime: {{ $node[\"Google Calendar Create\"].json.start.dateTime.split('T')[1].split(':00Z')[0] }}\nLink: {{ $node[\"Google Calendar Create\"].json.htmlLink }}",
+        "additionalFields": {}
+      },
+      "id": "telegram-response",
+      "name": "Telegram Response",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Google Calendar Create": {
+      "main": [
+        [
+          {
+            "node": "Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "calendar-workflow-v1"
+}

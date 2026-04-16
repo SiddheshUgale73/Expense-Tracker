@@ -1,0 +1,288 @@
+{
+  "name": "Multi-Agent Orchestrator (Main)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "message": [
+            {
+              "role": "system",
+              "content": "=You are the Orchestrator for an AI Personal Assistant. Your job is to analyze the user message and determine which specialized agent to call.\n\nAgents:\n- Email Agent: For sending, drafting, or managing emails.\n- Finance Agent: For tracking expenses and managing Google Sheets.\n- Scheduler Agent: For booking and managing Google Calendar events.\n- Reminder Agent: For setting up notifications and reminders.\n\nOutput JSON format:\n{\n  \"selected_agent\": \"email_agent | finance_agent | scheduler_agent | reminder_agent\",\n  \"reasoning\": \"...\",\n  \"payload\": {\n    \"original_text\": \"...\",\n    \"extracted_entities\": { ... }\n  }\n}"
+            },
+            {
+              "content": "={{ $json.message.text }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "id": "orchestrator-node",
+      "name": "Orchestrator Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        350,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.message.content.selected_agent }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "email_agent"
+            },
+            {
+              "value2": "finance_agent",
+              "output": 1
+            },
+            {
+              "value2": "scheduler_agent",
+              "output": 2
+            },
+            {
+              "value2": "reminder_agent",
+              "output": 3
+            }
+          ]
+        },
+        "fallbackOutput": 4
+      },
+      "id": "switch-node",
+      "name": "Route by Agent",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "EMAIL_AGENT_WORKFLOW_ID",
+        "mode": "each",
+        "options": {
+          "waitForCompletion": true
+        }
+      },
+      "id": "call-email-agent",
+      "name": "Call Email Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        850,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "FINANCE_AGENT_WORKFLOW_ID",
+        "mode": "each",
+        "options": {
+          "waitForCompletion": true
+        }
+      },
+      "id": "call-finance-agent",
+      "name": "Call Finance Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        850,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "SCHEDULER_AGENT_WORKFLOW_ID",
+        "mode": "each",
+        "options": {
+          "waitForCompletion": true
+        }
+      },
+      "id": "call-scheduler-agent",
+      "name": "Call Scheduler Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        850,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "REMINDER_AGENT_WORKFLOW_ID",
+        "mode": "each",
+        "options": {
+          "waitForCompletion": true
+        }
+      },
+      "id": "call-reminder-agent",
+      "name": "Call Reminder Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        850,
+        550
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
+        "text": "={{ $json.message || 'Task completed by ' + $node[\"Orchestrator Agent\"].json.message.content.selected_agent }}",
+        "additionalFields": {}
+      },
+      "id": "final-response",
+      "name": "Final Telegram Response",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1150,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Orchestrator Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Orchestrator Agent": {
+      "main": [
+        [
+          {
+            "node": "Route by Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Agent": {
+      "main": [
+        [
+          {
+            "node": "Call Email Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Finance Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Scheduler Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Reminder Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Email Agent": {
+      "main": [
+        [
+          {
+            "node": "Final Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Finance Agent": {
+      "main": [
+        [
+          {
+            "node": "Final Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Scheduler Agent": {
+      "main": [
+        [
+          {
+            "node": "Final Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Reminder Agent": {
+      "main": [
+        [
+          {
+            "node": "Final Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "multi-agent-orchestrator-v1"
+}

@@ -1,0 +1,322 @@
+{
+  "name": "Complete AI Assistant (Telegram + OpenAI + Google Workspace)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "message": [
+            {
+              "role": "system",
+              "content": "=You are an AI Assistant. Today is {{ $now }}. Analyze the user message and extract intent and entities in JSON format.\n\nIntents: SEND_EMAIL, ADD_EXPENSE, SCHEDULE_MEETING, SET_REMINDER.\n\nOutput format:\n{\n  \"intent\": \"...\",\n  \"tool_to_use\": \"...\",\n  \"entities\": { ... }\n}"
+            },
+            {
+              "content": "={{ $json.message.text }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "id": "openai-node",
+      "name": "OpenAI Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        320,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.message.content.tool_to_use }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "gmail"
+            },
+            {
+              "value2": "sheets",
+              "output": 1
+            },
+            {
+              "value2": "calendar",
+              "output": 2
+            },
+            {
+              "value2": "n8n_trigger",
+              "output": 3
+            }
+          ]
+        },
+        "fallbackOutput": 4
+      },
+      "id": "switch-node",
+      "name": "Route by Tool",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "subject": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.subject }}",
+        "message": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.body }}",
+        "toList": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.email }}"
+      },
+      "id": "gmail-node",
+      "name": "Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        800,
+        100
+      ],
+      "credentials": {
+        "googleGmailOAuth2Api": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": "={{ $env.EXPENSE_SHEET_ID }}",
+        "range": "A:E",
+        "options": {},
+        "valuesUi": {
+          "valuesValues": [
+            {
+              "columnName": "Date",
+              "columnValue": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.date || $now.toFormat('yyyy-MM-dd') }}"
+            },
+            {
+              "columnName": "Description",
+              "columnValue": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.subject }}"
+            },
+            {
+              "columnName": "Amount",
+              "columnValue": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.amount }}"
+            },
+            {
+              "columnName": "Currency",
+              "columnValue": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.currency || 'USD' }}"
+            }
+          ]
+        }
+      },
+      "id": "sheets-node",
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        800,
+        250
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": "={{ $env.PRIMARY_CALENDAR_ID || 'primary' }}",
+        "start": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.date }}T{{ $node[\"OpenAI Agent\"].json.message.content.entities.time || '09:00' }}:00Z",
+        "end": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.date }}T{{ $node[\"OpenAI Agent\"].json.message.content.entities.time ? ($node[\"OpenAI Agent\"].json.message.content.entities.time.split(':')[0]*1 + 1) + ':00' : '10:00' }}:00Z",
+        "summary": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.subject }}",
+        "additionalFields": {}
+      },
+      "id": "calendar-node",
+      "name": "Google Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        800,
+        400
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "YOUR_CALENDAR_CREDENTIAL_ID",
+          "name": "Google Calendar OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.time ? 0 : 1 }}",
+        "unit": "hours"
+      },
+      "id": "wait-node",
+      "name": "Wait (Reminder)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        800,
+        550
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
+        "text": "=✅ Task completed successfully!\n\nIntent: {{ $node[\"OpenAI Agent\"].json.message.content.intent }}\nDetails: {{ $node[\"OpenAI Agent\"].json.message.content.reasoning }}",
+        "additionalFields": {}
+      },
+      "id": "telegram-response",
+      "name": "Final Response",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Agent": {
+      "main": [
+        [
+          {
+            "node": "Route by Tool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Tool": {
+      "main": [
+        [
+          {
+            "node": "Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait (Reminder)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail": {
+      "main": [
+        [
+          {
+            "node": "Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait (Reminder)": {
+      "main": [
+        [
+          {
+            "node": "Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "complete-workflow-v1"
+}

@@ -1,0 +1,94 @@
+{
+  "name": "n8n Reminder System (Telegram)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
+        "text": "=🔔 Got it! I'll remind you to \"{{ $node[\"OpenAI Agent\"].json.message.content.entities.subject }}\" on {{ $node[\"OpenAI Agent\"].json.message.content.entities.date }} at {{ $node[\"OpenAI Agent\"].json.message.content.entities.time }}.",
+        "additionalFields": {}
+      },
+      "id": "set-confirmation",
+      "name": "Set Confirmation",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        800,
+        150
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resume": "atSpecificTime",
+        "dateTime": "={{ $node[\"OpenAI Agent\"].json.message.content.entities.date }}T{{ $node[\"OpenAI Agent\"].json.message.content.entities.time }}:00Z"
+      },
+      "id": "wait-until-time",
+      "name": "Wait Until Time",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
+        "text": "=⏰ **Reminder!**\n\nDon't forget to: {{ $node[\"OpenAI Agent\"].json.message.content.entities.subject }}",
+        "additionalFields": {}
+      },
+      "id": "send-reminder-final",
+      "name": "Send Reminder",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        450
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Wait Until Time": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "reminder-workflow-v1"
+}
