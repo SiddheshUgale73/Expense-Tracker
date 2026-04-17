@@ -1,0 +1,18 @@
+# Environments
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+.docker
+docker-compose.override.yml
+
+# n8n & Database specifics
+data/
