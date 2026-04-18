@@ -1,6 +1,6 @@
 # 🤖 AI-Powered Personal Assistant (n8n)
 
-A complete project structure for building an AI Assistant that integrates Telegram, OpenAI, and Google Workspace (Gmail, Sheets, Calendar).
+A complete project structure for building an AI Assistant that integrates a unified Telegram interface with an AI Brain (OpenAI/Groq). Google Workspace (Gmail, Sheets, Calendar) integration is also supported as an optional modular feature.
 
 ## 📁 Folder Structure
 - `workflows/`: Exported n8n workflow JSON files for version control.
@@ -12,8 +12,8 @@ A complete project structure for building an AI Assistant that integrates Telegr
 ## 🛠️ Prerequisites
 - [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/)
 - [Telegram Bot Token](https://t.me/BotFather) (UI)
-- [OpenAI API Key](https://platform.openai.com/api-keys) (AI Brain)
-- [Google Cloud Project](https://console.cloud.google.com/) (Gmail, Sheets, Calendar)
+- Custom AI Provider: [OpenAI API Key](https://platform.openai.com/api-keys) OR [Groq API Key](https://console.groq.com/keys) (AI Brain)
+- **[Optional]** [Google Cloud Project](https://console.cloud.google.com/) (If using Gmail, Sheets, or Calendar workflows)
   - Enable Gmail API, Google Sheets API, and Google Calendar API.
   - Create OAuth 2.0 credentials for n8n.
 
@@ -23,6 +23,7 @@ A complete project structure for building an AI Assistant that integrates Telegr
    ```bash
    cp .env.example .env
    ```
+   > ⚠️ **SECURITY WARNING**: Never commit your `.env` file to a public Git repository. A `.gitignore` file has been provided to prevent accidental leaks of your API Keys to GitHub.
 3. **Launch the environment**:
    ```bash
    docker-compose up -d
@@ -46,4 +47,4 @@ A complete project structure for building an AI Assistant that integrates Telegr
 ## 📦 Dependencies
 - `n8n`: The core automation engine.
 - `Postgres`: Robust database for workflow execution history and persistent data.
-- `OpenAI`: Large Language Model for intelligent task processing.
+- `OpenAI / Groq`: Large Language Model for intelligent task parsing and intent routing.
